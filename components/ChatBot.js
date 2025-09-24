@@ -29,6 +29,7 @@ import {
   Database,
   Smartphone,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 const LearnovaChatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -331,6 +332,85 @@ const LearnovaChatbot = () => {
     ];
   };
 
+  // Custom components for different themes
+  const markdownComponents = {
+    strong: ({ children }) => (
+      <span
+        className={`font-bold text-sm ${
+          isDarkMode ? "text-purple-400" : "text-purple-600"
+        }`}
+      >
+        {children}
+      </span>
+    ),
+
+    em: ({ children }) => (
+      <span
+        className={`italic text-sm ${
+          isDarkMode ? "text-blue-400" : "text-blue-600"
+        }`}
+      >
+        {children}
+      </span>
+    ),
+
+    ul: ({ children }) => (
+      <ul className="list-none space-y-1 my-2">{children}</ul>
+    ),
+
+    li: ({ children }) => (
+      <li className="flex items-start">
+        <span
+          className={`mr-2 text-xs ${
+            isDarkMode ? "text-purple-400" : "text-purple-600"
+          }`}
+        >
+          •
+        </span>
+        <span>{children}</span>
+      </li>
+    ),
+
+    p: ({ children }) => <p className="my-2 text-xs last:mb-0">{children}</p>,
+
+    code: ({ children }) => (
+      <code
+        className={`px-1 py-0.5 rounded text-xs ${
+          isDarkMode
+            ? "bg-gray-700 text-yellow-300"
+            : "bg-gray-200 text-red-600"
+        }`}
+      >
+        {children}
+      </code>
+    ),
+  };
+
+  // Add this function in your component
+  const saveToMongoDB = async (userMessage, botMessage) => {
+    try {
+      const response = await fetch("/api/conversations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userMessage: userMessage.text,
+          botMessage: botMessage.text,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save conversation");
+      }
+
+      const result = await response.json();
+      // console.log("✅ Saved to MongoDB:", result);
+    } catch (error) {
+      console.error("❌ MongoDB Save Error:", error);
+    }
+  };
+
   const handleSendMessage = async (messageText = inputMessage) => {
     if (!messageText.trim()) return;
 
@@ -364,6 +444,9 @@ const LearnovaChatbot = () => {
 
     setMessages((prev) => [...prev, botMessage]);
     setIsLoading(false);
+
+    // 🔥 ADD THIS LINE - Save to MongoDB
+    await saveToMongoDB(userMessage, botMessage);
   };
 
   const handleKeyPress = (e) => {
@@ -553,9 +636,18 @@ const LearnovaChatbot = () => {
                         : themeClasses.message.user
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-line leading-relaxed">
-                      {message.text}
-                    </p>
+                    {message.isBot ? (
+                      // Use in your ReactMarkdown
+                      <ReactMarkdown
+                        components={markdownComponents}
+                      >
+                        {message.text}
+                      </ReactMarkdown>
+                    ) : (
+                      <p className="text-sm whitespace-pre-line leading-relaxed">
+                        {message.text}
+                      </p>
+                    )}
                     <p className="text-xs mt-2 opacity-70">
                       {new Date(message.timestamp).toLocaleTimeString([], {
                         hour: "2-digit",
