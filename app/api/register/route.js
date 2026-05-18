@@ -71,7 +71,7 @@ export async function POST(req) {
       $or: [{ rollNo }, { email }],
     });
     if (existingUser) {
-      return jsonError("User already registered", 409);
+      return jsonError("User already registered with a photo", 409);
     }
 
     // Convert file to buffer
