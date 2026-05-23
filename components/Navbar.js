@@ -240,8 +240,8 @@ export function Navbar() {
                     href={item.href}
                     className={`text-sm font-bold tracking-wide px-5 py-2 rounded-xl transition-all duration-200 ${
                       isActive
-                        ? "bg-white dark:bg-zinc-800 text-blue-600 dark:text-white shadow-sm"
-                        : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+                        ? "bg-accent/20 text-gray-950 dark:text-white font-medium"
+                        : "text-gray-900 dark:text-gray-50 hover:text-gray-950 dark:hover:text-white hover:bg-accent/10"
                     }`}
                   >
                     {item.label}
@@ -291,7 +291,7 @@ export function Navbar() {
               {mounted && (
                 <button
                   onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                  className="p-2 rounded-xl text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors border border-zinc-200/40 dark:border-zinc-800/50"
+                  className="p-2 rounded-xl text-gray-900 dark:text-gray-50 hover:text-gray-950 dark:hover:text-white hover:bg-accent/10 transition-all duration-300 cursor-pointer"
                   aria-label="Toggle theme"
                 >
                   {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -305,7 +305,8 @@ export function Navbar() {
                   <div className="relative">
                     <button
                       onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                      className="p-2 rounded-xl text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors"
+                      className="relative p-2 rounded-xl text-gray-900 dark:text-gray-50 hover:text-gray-950 dark:hover:text-white hover:bg-accent/10 transition-all duration-300 cursor-pointer"
+                      aria-label="View notifications"
                     >
                       <Bell className="h-5 w-5" />
                       {unreadCount > 0 && <span className="absolute top-2 right-2 bg-red-500 rounded-full h-2 w-2" />}
@@ -338,8 +339,11 @@ export function Navbar() {
 
                   {/* Profile Dropdown */}
                   <div className="relative" ref={dropdownRef}>
-                    <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="flex items-center space-x-2 p-1 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors">
-                      <div className="relative w-8 h-8">
+                    <button
+                      onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                      className="flex items-center space-x-3 p-2 rounded-xl text-gray-900 dark:text-gray-50 hover:text-gray-950 dark:hover:text-white hover:bg-accent/10 transition-all duration-300"
+                    >
+                      <div className="relative w-10 h-10">
                         {getUserPhoto() ? (
                           <Image src={getUserPhoto()} alt="Profile" width={32} height={32} className="rounded-full object-cover" onError={handleImageError} />
                         ) : (
@@ -383,10 +387,17 @@ export function Navbar() {
               )}
             </div>
 
-            {/* Responsive Mobile Menu Button Target */}
-            <div className="sm:hidden flex items-center space-x-2">
-              <Button variant="ghost" size="sm" onClick={() => setIsMenuOpen(!isMenuOpen)} className="text-zinc-600 dark:text-zinc-400 px-1">
-                {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+            {/* Mobile View Toggle Control Trigger */}
+            <div className="sm:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Toggle Menu"
+                aria-expanded={isMenuOpen}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-gray-900 dark:text-gray-50 hover:text-accent hover:bg-accent/10 transition-all duration-300"
+              >
+                {isMenuOpen ? <X className="h-7 w-7" /> : <Menu className="h-7 w-7" />}
               </Button>
             </div>
 
