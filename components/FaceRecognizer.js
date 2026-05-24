@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import * as faceapi from "face-api.js";
 import { Button } from "@/components/ui/button";
 import useLabels from "@/components/useLabels";
@@ -16,8 +16,20 @@ const PROCESSING_INTERVAL_MS = 100; // ~10 FPS
 
 export default function FaceRecognizer({ authUser }) {
   const isMounted = useRef(true);
-  const retryStreamRef = useRef(null);
+  const streamRef = useRef(null);
   const videoRef = useRef(null);
+
+  const stopMediaStream = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }, []);
   const canvasRef = useRef(null);
   const cachedDescriptorsRef = useRef(null);
   const faceMatcherRef = useRef(null);
@@ -50,9 +62,7 @@ export default function FaceRecognizer({ authUser }) {
 
   const handleRetry = async () => {
     try {
-      if (retryStreamRef.current) {
-        retryStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
+      stopMediaStream();
       
       if (animationFrameId.current) {
         cancelAnimationFrame(animationFrameId.current);
@@ -65,11 +75,12 @@ export default function FaceRecognizer({ authUser }) {
         return;
       }
 
-      retryStreamRef.current = stream;
+      streamRef.current = stream;
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
+          if (!isMounted.current) return;
           videoRef.current.play();
           setIsLoading(false);
           
@@ -91,18 +102,20 @@ export default function FaceRecognizer({ authUser }) {
       setFinished(false);
       setAttendanceState("idle");
     } catch (err) {
+      if (!isMounted.current) return;
+
       if (err.name === "NotAllowedError") {
         setMessage("Camera access is blocked! Enable camera permissions in browser settings.");
+      } else if (err.name === "NotFoundError" || err.name === "NotReadableError") {
+        setMessage("No camera found or camera is in use by another application ❌");
       } else {
-        setMessage("Cannot access camera ❌");
+        setMessage("Cannot access camera ❌. Please try again.");
       }
       setFinished(true);
     }
   };
 
   useEffect(() => {
-    let stream;
-
     const loadModels = async () => {
       try {
         await Promise.all([
@@ -111,10 +124,14 @@ export default function FaceRecognizer({ authUser }) {
           faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
         ]);
 
+        if (!isMounted.current) return;
+
         setMessage("Models loaded ✅ Starting webcam...");
         startVideo();
       } catch (err) {
-        setMessage("Failed to load models.");
+        if (!isMounted.current) return;
+        console.error("Model load error:", err);
+        setMessage("Failed to load models. Please check your network connection.");
         setIsLoading(false);
         setFinished(true);
       }
@@ -122,21 +139,25 @@ export default function FaceRecognizer({ authUser }) {
 
     const startVideo = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: {} });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: {} });
 
         if (!isMounted.current) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
 
+        streamRef.current = stream;
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
+            if (!isMounted.current) return;
             videoRef.current.play();
             setIsLoading(false);
             setMessage("Building face models...");
 
             buildFaceMatcher().then(() => {
+              if (!isMounted.current) return;
               setMessage("Looking for faces...");
               setLivenessState("DETECTING_FACE");
               
@@ -146,7 +167,15 @@ export default function FaceRecognizer({ authUser }) {
           };
         }
       } catch (err) {
-        setMessage("Cannot access webcam ❌");
+        if (!isMounted.current) return;
+        console.error("Webcam error:", err);
+        if (err.name === "NotAllowedError") {
+          setMessage("Camera access is blocked! Enable camera permissions in browser settings.");
+        } else if (err.name === "NotFoundError" || err.name === "NotReadableError") {
+          setMessage("No camera found or camera is in use by another application ❌");
+        } else {
+          setMessage("Cannot access webcam ❌. Please try again.");
+        }
         setFinished(true);
         setIsLoading(false);
       }
@@ -163,20 +192,9 @@ export default function FaceRecognizer({ authUser }) {
         cancelAnimationFrame(animationFrameId.current);
       }
 
-      if (retryStreamRef.current) {
-        retryStreamRef.current.getTracks().forEach((t) => t.stop());
-        retryStreamRef.current = null;
-      }
-
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+      stopMediaStream();
     };
-  }, [labelsLoading, error, labels]);
+  }, [labelsLoading, error, labels, stopMediaStream]);
 
   const buildFaceMatcher = async () => {
     if (!labels || labels.length === 0) return;
@@ -185,7 +203,9 @@ export default function FaceRecognizer({ authUser }) {
       await Promise.all(
         labels.map(async (student) => {
           try {
+            if (!isMounted.current) return null;
             const img = await faceapi.fetchImage(student.image);
+            if (!isMounted.current) return null;
             const detection = await faceapi
               .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions())
               .withFaceLandmarks()
@@ -202,6 +222,8 @@ export default function FaceRecognizer({ authUser }) {
         })
       )
     ).filter(Boolean);
+
+    if (!isMounted.current) return;
 
     cachedDescriptorsRef.current = labeledFaceDescriptors;
 
@@ -256,6 +278,8 @@ export default function FaceRecognizer({ authUser }) {
       .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions())
       .withFaceLandmarks()
       .withFaceDescriptors();
+
+    if (!isMounted.current) return;
 
     const resizedDetections = faceapi.resizeResults(detections, displaySize);
     const ctx = canvas.getContext("2d");
