@@ -16,6 +16,10 @@ const withPWA = withPWAInit({
     disableDevLogs: true,
     runtimeCaching: [
       {
+        urlPattern: /\/api\/.*/i,
+        handler: "NetworkOnly",
+      },
+      {
         urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
         handler: "CacheFirst",
         options: {
