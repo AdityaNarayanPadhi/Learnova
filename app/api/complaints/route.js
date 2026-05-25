@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { connectDb } from "@/lib/mongodb";
+import { parseJSON } from "@/lib/error-handler";
+import { AppError } from "@/lib/errors";
 
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const body = await parseJSON(req, 1024 * 10);
     const { category, subject, description, priority } = body;
 
     // Validation
